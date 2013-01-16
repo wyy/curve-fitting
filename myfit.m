@@ -15,6 +15,8 @@ for i = 1:length(varargin)
         file_pattern = [option, ' off=*.xls'];
     elseif regexpi(option, 'off=*') == 1
         file_pattern = ['on=* ', option, '.xls'];
+    else
+        type('README.md')
     end
 end
 % directory and file
@@ -41,9 +43,8 @@ for i = 1:length(dirs1)
                 continue
             end
             path_3 = fullfile(path_2, files(k).name);
-            flags = [dirs2(j).name, ' ', files(k).name(1:end-4)];
-            [y0, A, T, xc] = fitfile(path_3, index, flags);
             file = fullfile(dirs1(i).name, dirs2(j).name, files(k).name);
+            [y0, A, T, xc] = fitfile(path_3, index, file);
             fprintf(fid, '%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
             fprintf('%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
         end
@@ -51,15 +52,27 @@ for i = 1:length(dirs1)
 end
 fclose(fid);
 
-function [y0, A, T, xc] = fitfile(filename, index, flags)
+function [y0, A, T, xc] = fitfile(filename, index, file)
 %% fitfile
 % x, y data
 data = xlsread(filename);
-x = data(index, 1);
-y = data(index, 2);
+x = data(:, 1);
+y = data(:, 2);
 y = (y - 1) * 250;
+% Print time vs. Q to file
+[pathstr, name, ext] = fileparts(file);
+dir_name = fullfile('fitdata', pathstr);
+if ~exist(dir_name, 'dir')
+    mkdir(dir_name)
+end
+fid = fopen(fullfile(dir_name, [name, '.txt']), 'wt');
+fprintf(fid, '%11s%11s\n', 'time(s)', 'Q(ml/s)');
+fprintf(fid, '%11g%11g\n', [x, y]');
+fclose(fid);
 % fit
-[fitresult, gof] = createFit(x, y, flags);
+x = x(index, 1);
+y = y(index, 1);
+[fitresult, gof] = createFit(x, y, file);
 % fitresult(x) =  a0 + a1*cos(x*w) + b1*sin(x*w)
 cv = coeffvalues(fitresult);
 a0 = cv(1);
@@ -72,12 +85,12 @@ A = sqrt(a1^2 + b1^2);
 T = 2*pi/w;
 xc = - asin(a1/A)*T/(2*pi);
 
-function [fitresult, gof] = createFit(xData, yData, flags)
+function [fitresult, gof] = createFit(xData, yData, file)
 %% Fit
 % Fit model to data.
 [fitresult, gof] = fit( xData, yData, 'fourier1' );
 % Plot fit with data.
-hf = figure( 'Name', flags );
+hf = figure( 'Name', file );
 h = plot( fitresult, xData, yData );
 legend( h, 'y vs. x', 'Curve fitting', 'Location', 'NorthEast' );
 % Label axes
@@ -85,9 +98,10 @@ xlabel( 'x' );
 ylabel( 'y' );
 grid on
 % Print figure to file
-dir_name = 'fitfigure';
+[pathstr, name, ext] = fileparts(file);
+dir_name = fullfile('fitfigure', pathstr);
 if ~exist(dir_name, 'dir')
     mkdir(dir_name)
 end
-print(hf, '-dpng', fullfile(dir_name, [flags, '.png']))
+print(hf, '-dpng', fullfile(dir_name, [name, '.png']))
 close(hf)

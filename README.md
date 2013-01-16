@@ -8,7 +8,7 @@
 - `options`
   - 参数 'Q=*', 'on=*', 'off=*' 中的一个或几个的组合。
 
-拟合如下文件结构的数据，结果存放在 `fitresult.txt` 和 `fitfigure` 中。
+拟合如下文件结构的数据，结果存放在 `fitfigure`, `fitdata` 和 `fitresult.txt` 中。
 
 ```
 |- off=0.1
