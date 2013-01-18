@@ -6,6 +6,7 @@ path = '.';
 dir_pattern_1 = 'off=*';
 dir_pattern_2 = 'Q=*';
 file_pattern = 'on=* off=*.xls';
+filter_on = 0;
 % optional arguments
 for i = 1:length(varargin)
     option = varargin{i};
@@ -15,7 +16,13 @@ for i = 1:length(varargin)
         file_pattern = [option, ' off=*.xls'];
     elseif regexpi(option, 'off=*') == 1
         file_pattern = ['on=* ', option, '.xls'];
-    else
+    elseif regexpi(option, 'filter') == 1
+        if i < length(varargin) && regexp(varargin{i+1}, '\d+') == 1
+            filter_on = str2num(varargin{i+1});
+        else
+            filter_on = 3;
+        end
+    elseif ~regexp(option, '\d+') == 1
         type('README.md')
     end
 end
@@ -44,7 +51,7 @@ for i = 1:length(dirs1)
             end
             path_3 = fullfile(path_2, files(k).name);
             file = fullfile(dirs1(i).name, dirs2(j).name, files(k).name);
-            [y0, A, T, xc] = fitfile(path_3, index, file);
+            [y0, A, T, xc] = fitfile(path_3, index, file, filter_on);
             fprintf(fid, '%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
             fprintf('%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
         end
@@ -52,7 +59,7 @@ for i = 1:length(dirs1)
 end
 fclose(fid);
 
-function [y0, A, T, xc] = fitfile(filename, index, file)
+function [y0, A, T, xc] = fitfile(filename, index, file, filter_on)
 %% fitfile
 % x, y data
 data = xlsread(filename);
@@ -69,9 +76,21 @@ fid = fopen(fullfile(dir_name, [name, '.txt']), 'wt');
 fprintf(fid, '%11s%11s\n', 'time(s)', 'Q(ml/s)');
 fprintf(fid, '%11g%11g\n', [x, y]');
 fclose(fid);
-% fit
+% fit x y
 x = x(index, 1);
 y = y(index, 1);
+% filter
+if filter_on > 0
+    n = filter_on;
+    band = zeros(size(x));
+    band(2+n:end-n) = 1;
+    band(1) = 1;
+    ty = fft(y) .* band;
+    y = ifft(ty);
+    [pathstr, name, ext] = fileparts(file);
+    file = fullfile(pathstr, [name, '.filter', ext]);
+end
+% fit
 [fitresult, gof] = createFit(x, y, file);
 % fitresult(x) =  a0 + a1*cos(x*w) + b1*sin(x*w)
 cv = coeffvalues(fitresult);
