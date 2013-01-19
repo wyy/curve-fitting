@@ -13,9 +13,10 @@ for i = 1:length(varargin)
     if regexpi(option, 'Q=*') == 1
         dir_pattern_2 = [option, '*'];
     elseif regexpi(option, 'on=*') == 1
-        file_pattern = [option, ' off=*.xls'];
+        file_pattern = regexprep(file_pattern, 'on=\*', option);
     elseif regexpi(option, 'off=*') == 1
-        file_pattern = ['on=* ', option, '.xls'];
+        file_pattern = regexprep(file_pattern, 'off=\*', option);
+        dir_pattern_1 = [option, '*'];
     elseif regexpi(option, 'filter') == 1
         if i < length(varargin) && regexp(varargin{i+1}, '\d+') == 1
             filter_on = str2num(varargin{i+1});
@@ -66,7 +67,7 @@ data = xlsread(filename);
 x = data(:, 1);
 y = data(:, 2);
 y = (y - 1) * 250;
-% Print time vs. Q to file
+% Print Q vs. time to file
 [pathstr, name, ext] = fileparts(file);
 dir_name = fullfile('fitdata', pathstr);
 if ~exist(dir_name, 'dir')
@@ -109,12 +110,12 @@ function [fitresult, gof] = createFit(xData, yData, file)
 % Fit model to data.
 [fitresult, gof] = fit( xData, yData, 'fourier1' );
 % Plot fit with data.
-hf = figure( 'Name', file );
+hf = figure( 'Name', file, 'DefaultAxesFontSize', 13 );
 h = plot( fitresult, xData, yData );
-legend( h, 'y vs. x', 'Curve fitting', 'Location', 'NorthEast' );
+legend( h, 'Q vs. t', 'Curve fitting', 'Location', 'NorthEast' );
 % Label axes
-xlabel( 'x' );
-ylabel( 'y' );
+xlabel( 't(s)' );
+ylabel( 'Q(ml/s)' );
 grid on
 % Print figure to file
 [pathstr, name, ext] = fileparts(file);
