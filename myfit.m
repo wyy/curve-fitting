@@ -7,6 +7,7 @@ dir_pattern_1 = 'off=*';
 dir_pattern_2 = 'Q=*';
 file_pattern = 'on=* off=*.xls';
 filter_on = 0;
+mean_on = 1;
 % optional arguments
 for i = 1:length(varargin)
     option = varargin{i};
@@ -45,6 +46,13 @@ for i = 1:length(dirs1)
             continue
         end
         path_2 = fullfile(path_1, dirs2(j).name);
+        y0_q = [];
+        file_q = dir(fullfile(path_2, 'Q=*.xls'));
+        if length(file_q) == 1 && mean_on
+            path_3 = fullfile(path_2, file_q(1).name);
+            data = xlsread(path_3);
+            y0_q = (mean(data(:,2)) - 1) * 250;
+        end
         files = dir(fullfile(path_2, file_pattern));
         for k = 1:length(files)
             if files(k).isdir
@@ -52,7 +60,7 @@ for i = 1:length(dirs1)
             end
             path_3 = fullfile(path_2, files(k).name);
             file = fullfile(dirs1(i).name, dirs2(j).name, files(k).name);
-            [y0, A, T, xc] = fitfile(path_3, index, file, filter_on);
+            [y0, A, T, xc] = fitfile(path_3, index, file, filter_on, y0_q);
             fprintf(fid, '%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
             fprintf('%10g %10g %10g %10g %36s\n', y0, A, T, A/y0, file);
         end
@@ -60,7 +68,7 @@ for i = 1:length(dirs1)
 end
 fclose(fid);
 
-function [y0, A, T, xc] = fitfile(filename, index, file, filter_on)
+function [y0, A, T, xc] = fitfile(filename, index, file, filter_on, y0_q)
 %% fitfile
 % x, y data
 data = xlsread(filename);
@@ -92,7 +100,7 @@ if filter_on > 0
     file = fullfile(pathstr, [name, '.filter', ext]);
 end
 % fit
-[fitresult, gof] = createFit(x, y, file);
+[fitresult, gof] = createFit(x, y, file, y0_q);
 % fitresult(x) =  a0 + a1*cos(x*w) + b1*sin(x*w)
 cv = coeffvalues(fitresult);
 a0 = cv(1);
@@ -105,14 +113,20 @@ A = sqrt(a1^2 + b1^2);
 T = 2*pi/w;
 xc = - asin(a1/A)*T/(2*pi);
 
-function [fitresult, gof] = createFit(xData, yData, file)
+function [fitresult, gof] = createFit(xData, yData, file, y0_q)
 %% Fit
 % Fit model to data.
 [fitresult, gof] = fit( xData, yData, 'fourier1' );
 % Plot fit with data.
-hf = figure( 'Name', file, 'DefaultAxesFontSize', 13 );
-h = plot( fitresult, xData, yData );
-legend( h, 'Q vs. t', 'Curve fitting', 'Location', 'NorthEast' );
+h = figure( 'Name', file, 'DefaultAxesFontSize', 13 );
+plot( fitresult, xData, yData );
+if length(y0_q) == 1
+    hold on
+    plot(xData, ones(size(xData))*y0_q, 'm')
+    legend( 'Q vs. t', 'Curve fitting', 'Mean', 'Location', 'NorthEast' );
+else
+    legend( 'Q vs. t', 'Curve fitting', 'Location', 'NorthEast' );
+end
 % Label axes
 xlabel( 't(s)' );
 ylabel( 'Q(ml/s)' );
@@ -123,5 +137,5 @@ dir_name = fullfile('fitfigure', pathstr);
 if ~exist(dir_name, 'dir')
     mkdir(dir_name)
 end
-print(hf, '-dpng', fullfile(dir_name, [name, '.png']))
-close(hf)
+print(h, '-dpng', fullfile(dir_name, [name, '.png']))
+close(h)
